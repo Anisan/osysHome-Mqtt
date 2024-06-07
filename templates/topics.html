@@ -1,0 +1,78 @@
+{% extends "layouts/module_admin.html" %}
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="Mqtt">Mqtt</a></li>
+{% endblock %}
+{% block module %}
+<button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#exampleModal">
+    Settings
+</button>
+<a href="?op=add" class="btn btn-primary" title="Add">Add topic</a>
+<div class="table-responsive">
+    <table class="table table-hover table-sm">
+        <thead>
+            <tr>
+                <th>Title</th>
+                <th>Path</th>
+                <th>Value</th>
+                <th>Link</th>
+                <th>Updated</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for topic in topics %}
+            <tr>
+                <td class="py-1">{{ topic.title }}</td>
+                <td class="py-1">{{ topic.path }}</td>
+                <td class="py-1">{{ topic.value }}</td>
+                <td class="py-1">{{ topic.linked_object }}.{{ topic.linked_property }}{{ topic.linked_method }}</td>
+                <td class="py-1" id="dev{{topic.id}}_updated">
+                    {{topic.updated}}
+                </td>
+                <td  class="py-1" width="1%" nowrap>
+                    <div>
+                        <a href="?op=edit&topic={{topic.id}}" class="btn btn-secondary" title="Edit"><i class="feather icon-edit"></i></a>
+                        <a href="?op=delete&topic={{topic.id}}" onClick="return confirm('Are you sure? Please confirm.')" class="btn btn-danger" title="Delete"><i class="feather icon-trash"></i></a>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+    <!-- Модальное окно с настройками -->
+    <div class="modal fade" id="exampleModal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form  method="POST">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="exampleModalLabel">Settings</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Поля формы -->
+                    {{ form.hidden_tag() }}
+                    <div class="mb-3">
+                        {{ form.host.label(class="form-label") }}
+                        {{ form.host(class="form-control") }}
+                    </div>
+                    <div class="mb-3">
+                        {{ form.port.label(class="form-label") }}
+                        {{ form.port(class="form-control") }}
+                    </div>
+                    <div class="mb-3">
+                    {{ form.topic.label(class="form-label") }}
+                    {{ form.topic(class="form-control") }}
+                </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="submit" class="btn btn-primary">Submit</button>
+                </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+{% endblock %}

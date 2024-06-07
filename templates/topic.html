@@ -1,0 +1,67 @@
+{% extends "layouts/module_admin.html" %}
+{% from "macros/select.html" import render_linked_select %}
+
+{% block title %} Topic {% endblock %} 
+
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="Mqtt">Mqtt</a></li>
+<li class="breadcrumb-item">{{form.title.data}}</li>
+{% endblock %}
+
+{% block module %}
+
+{% if form.errors %}
+    <ul>
+    {% for field, errors in form.errors.items() %}
+        {% for error in errors %}
+            <li>{{field}}: {{ error }}</li>
+        {% endfor %}
+    {% endfor %}
+    </ul>
+{% endif %}
+<h2>{{form.title.data}}</h2>
+
+<form method="POST">
+    {{ form.hidden_tag() }}
+    <div>
+        {{ form.title.label(class="form-label") }}
+        {{ form.title(class="form-control") }}
+    </div>
+    <div>
+        {{ form.path.label(class="form-label") }}
+        {{ form.path(class="form-control") }}
+    </div>
+    <div>
+        {{ form.path_write.label(class="form-label") }}
+        {{ form.path_write(class="form-control") }}
+    </div>
+    {{ render_linked_select(form.linked_object, form.linked_property, form.linked_method) }}
+    <div>
+        {{ form.only_new_value.label(class="form-label me-2") }}
+        {{ form.only_new_value(class="form-check-input") }}
+    </div>
+    <div>
+        {{ form.readonly.label(class="form-label me-2") }}
+        {{ form.readonly(class="form-check-input") }}
+    </div>
+    <div>
+        {{ form.qos.label(class="form-label me-3") }}
+        {% for choice in form.qos %}
+        <div class="form-check form-check-inline">
+            {{ choice(class="form-check-input") }}
+            <label class="form-check-label" for="{{ choice.id }}">{{ choice.label }}</label>
+        </div>
+        {% endfor %}
+    </div>
+    <div>
+        {{ form.retain.label(class="form-label  me-2") }}
+        {{ form.retain(class="form-check-input") }}
+    </div>
+    <div class="mb-2">
+        {{ form.replace_list.label(class="form-label") }}
+        {{ form.replace_list(class="form-control") }}
+    </div>
+    <button type="submit" name="form_submit" class="btn btn-primary">Submit</button>
+    <a href="Mqtt" class="btn btn-secondary">Cancel</a>
+</form>
+{% endblock %}
