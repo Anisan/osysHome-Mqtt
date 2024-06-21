@@ -86,7 +86,7 @@ class Mqtt(BasePlugin):
             time.sleep(1)
 
     def mqttPublish(self, topic, value, qos = 0, retain = False):
-        self.logger.info("Publish: "+topic+" "+value)
+        self.logger.info("Publish: %s - %s",topic,value)
         self._client.publish(topic, str(value), qos=qos, retain= retain)
 
     def changeLinkedProperty(self, obj, prop, val):
