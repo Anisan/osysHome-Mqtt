@@ -4,6 +4,7 @@ import json, re
 import paho.mqtt.client as mqtt
 from flask import redirect
 from sqlalchemy import or_
+from app.database import session_scope
 from app.core.main.BasePlugin import BasePlugin
 from plugins.Mqtt.models.Mqtt import Topic
 from plugins.Mqtt.forms.SettingForms import SettingsForm
@@ -43,10 +44,11 @@ class Mqtt(BasePlugin):
         if op == 'delete':
             id = request.args.get('topic', '')
             #delete 
-            sql = delete(Topic).where(Topic.id == id)
-            self.session.execute(sql)
-            self.session.commit()
-            return redirect("Mqtt")
+            with session_scope() as session:
+                sql = delete(Topic).where(Topic.id == id)
+                session.execute(sql)
+                session.commit()
+                return redirect("Mqtt")
 
         result=['topics.html']
         if op == 'add' or op=='edit':
@@ -66,7 +68,7 @@ class Mqtt(BasePlugin):
                 return redirect("Mqtt")
 
         if result[0] == 'topics.html':
-            topics = self.session.query(Topic).all()
+            topics = Topic.query.all()
 
             content = {
                 "form": settings,
@@ -90,27 +92,28 @@ class Mqtt(BasePlugin):
         self._client.publish(topic, str(value), qos=qos, retain= retain)
 
     def changeLinkedProperty(self, obj, prop, val):
-        properties = self.session.query(Topic).filter(Topic.linked_object == obj, Topic.linked_property == prop).all()
-        if len(properties) == 0:
-            from app.core.lib.object import removeLinkFromObject
-            removeLinkFromObject(obj, prop, "Mqtt")
-            return
-        for property in properties:
-            new_value = val
-            old_value = property.value
+        with session_scope() as session:
+            properties = session.query(Topic).filter(Topic.linked_object == obj, Topic.linked_property == prop).all()
+            if len(properties) == 0:
+                from app.core.lib.object import removeLinkFromObject
+                removeLinkFromObject(obj, prop, "Mqtt")
+                return
+            for property in properties:
+                new_value = val
+                old_value = property.value
 
-            if property.readonly:
-                continue
+                if property.readonly:
+                    continue
 
-            if property.replace_list:
-                replaceList = self.parseReplaceValue(property.replace_list)
-                new_value = replaceList[str(val)]
-            
-            #send to mqtt
-            topic = property.path
-            if property.path_write:
-                topic = property.path_write
-            self.mqttPublish(topic, new_value, property.qos, property.retain)
+                if property.replace_list:
+                    replaceList = self.parseReplaceValue(property.replace_list)
+                    new_value = replaceList[str(val)]
+                
+                #send to mqtt
+                topic = property.path
+                if property.path_write:
+                    topic = property.path_write
+                self.mqttPublish(topic, new_value, property.qos, property.retain)
 
     # Функция обратного вызова для подключения к брокеру MQTT
     def on_connect(self,client, userdata, flags, rc):
@@ -151,26 +154,27 @@ class Mqtt(BasePlugin):
 
     def processMessage(self, path, value):
         #self.logger.debug(f'Topic {path} = {value}')
-        properties = self.session.query(Topic).filter(Topic.path == path).all()
-        if not properties:
-            return
-        for property in properties:
-            if property.only_new_value and property.value == value:
-                continue
-            old_value = property.value
-            if property.replace_list:
-                replaceList = self.parseReplaceName(property.replace_list)
-                value = replaceList[value]
-            property.value = value
-            property.updated = datetime.datetime.now()
-            self.session.commit()
+        with session_scope() as session:
+            properties = session.query(Topic).filter(Topic.path == path).all()
+            if not properties:
+                return
+            for property in properties:
+                if property.only_new_value and property.value == value:
+                    continue
+                old_value = property.value
+                if property.replace_list:
+                    replaceList = self.parseReplaceName(property.replace_list)
+                    value = replaceList[value]
+                property.value = value
+                property.updated = datetime.datetime.now()
+                session.commit()
 
-            if property.linked_object:
-                if property.linked_method:
-                    callMethodThread(property.linked_object + '.' + property.linked_method,
-                            {'VALUE': value, 'NEW_VALUE': value, 'OLD_VALUE': old_value, 'TITLE': property.title})
-                if property.linked_property:
-                    setPropertyThread(property.linked_object + '.' + property.linked_property, value, "Mqtt")
+                if property.linked_object:
+                    if property.linked_method:
+                        callMethodThread(property.linked_object + '.' + property.linked_method,
+                                {'VALUE': value, 'NEW_VALUE': value, 'OLD_VALUE': old_value, 'TITLE': property.title},self.name)
+                    if property.linked_property:
+                        setPropertyThread(property.linked_object + '.' + property.linked_property, value, self.name)
 
     def parseReplaceName(self, s):
         pairs = s.split(',')
