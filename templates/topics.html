@@ -25,7 +25,11 @@
                 <td class="py-1">{{ topic.title }}</td>
                 <td class="py-1">{{ topic.path }}</td>
                 <td class="py-1">{{ topic.value }}</td>
-                <td class="py-1">{{ topic.linked_object }}.{{ topic.linked_property }}{{ topic.linked_method }}</td>
+                <td class="py-1">
+                    {%if topic.linked_object%}
+                        {{ topic.linked_object }}.{%if topic.linked_property%}{{ topic.linked_property }}{% endif %}{%if topic.linked_method%}{{ topic.linked_method }}{% endif %}
+                    {% endif %}
+                </td>
                 <td class="py-1" id="dev{{topic.id}}_updated">
                     {{topic.updated}}
                 </td>

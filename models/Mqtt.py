@@ -1,5 +1,5 @@
 
-from app.database import Column, Model, SurrogatePK, db
+from app.database import Column, SurrogatePK, db
 
 class Topic(SurrogatePK, db.Model):
     __tablename__ = 'mqtt_topics'
@@ -11,8 +11,8 @@ class Topic(SurrogatePK, db.Model):
     linked_object = Column(db.String(255))
     linked_property = Column(db.String(255))
     linked_method = Column(db.String(255))
-    qos = Column(db.Integer, default = 0)
-    retain = Column(db.Boolean, default = False)
+    qos = Column(db.Integer, default=0)
+    retain = Column(db.Boolean, default=False)
     replace_list = Column(db.String(255))
-    readonly = Column(db.Boolean, default = False)
-    only_new_value = Column(db.Boolean, default = False)
+    readonly = Column(db.Boolean, default=False)
+    only_new_value = Column(db.Boolean, default=False)

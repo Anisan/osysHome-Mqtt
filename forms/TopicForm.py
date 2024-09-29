@@ -1,7 +1,6 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, SubmitField, SelectField, BooleanField, RadioField, IntegerField
-from wtforms.validators import DataRequired, Optional
-
+from wtforms import StringField, BooleanField, RadioField
+from wtforms.validators import DataRequired
 from app.database import db
 from plugins.Mqtt.models.Mqtt import Topic
 
@@ -20,7 +19,7 @@ class TopicForm(FlaskForm):
 
 def routeTopic(request):
     id = request.args.get('topic', None)
-    op = request.args.get('op', '')
+
     if id:
         item = Topic.query.get_or_404(id)  # Получаем объект из базы данных или возвращаем 404, если не найден
         form = TopicForm(obj=item)  # Передаем объект в форму для редактирования
@@ -38,9 +37,9 @@ def routeTopic(request):
                 newLinkedObject = item.linked_object
                 newLinkedProperty = item.linked_property
                 if oldLinkedObject != newLinkedObject or oldLinkedProperty != newLinkedProperty:
-                    if oldLinkedProperty!= "":
+                    if oldLinkedProperty != "":
                         removeLinkFromObject(oldLinkedObject,oldLinkedProperty,"Mqtt")
-                    if newLinkedProperty!= "":
+                    if newLinkedProperty != "":
                         setLinkToObject(newLinkedObject,newLinkedProperty,"Mqtt")
             else:
                 item = Topic()
@@ -50,8 +49,8 @@ def routeTopic(request):
                     setLinkToObject(item.linked_object,item.linked_property,"Mqtt")
             db.session.commit()  # Сохраняем изменения в базе данных
             return ["topics.html"]  # Перенаправляем на другую страницу после успешного редактирования
-        
+
     return ['topic.html', {
             'id': id,
             'form':form,
-        }]
+            }]
