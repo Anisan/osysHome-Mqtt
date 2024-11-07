@@ -32,6 +32,8 @@ class Mqtt(BasePlugin):
         self._client.on_message = self.on_message
 
         if "host" in self.config:
+            if self.config.get("login",'') != '' and self.config.get("password",'') != '':
+                self._client.username_pw_set(self.config["login"], self.config["password"])
             # Подключаемся к брокеру MQTT
             self._client.connect(self.config.get("host",""), 1883, 0)
             # Запускаем цикл обработки сообщений в отдельном потоке
@@ -56,11 +58,15 @@ class Mqtt(BasePlugin):
             settings.host.data = self.config.get('host','')
             settings.port.data = self.config.get('port',1883)
             settings.topic.data = self.config.get('topic','')
+            settings.login.data = self.config.get('login','')
+            settings.password.data = self.config.get('password','')
         else:
             if settings.validate_on_submit():
                 self.config["host"] = settings.host.data
                 self.config["port"] = settings.port.data
                 self.config["topic"] = settings.topic.data
+                self.config["login"] = settings.login.data
+                self.config["password"] = settings.password.data
                 self.saveConfig()
                 return redirect("Mqtt")
 

@@ -66,9 +66,17 @@
                         {{ form.port(class="form-control") }}
                     </div>
                     <div class="mb-3">
-                    {{ form.topic.label(class="form-label") }}
-                    {{ form.topic(class="form-control") }}
-                </div>
+                        {{ form.login.label(class="form-label") }}
+                        {{ form.login(class="form-control") }}
+                    </div>
+                    <div class="mb-3">
+                        {{ form.password.label(class="form-label") }}
+                        {{ form.password(class="form-control") }}
+                    </div>
+                    <div class="mb-3">
+                        {{ form.topic.label(class="form-label") }}
+                        {{ form.topic(class="form-control") }}
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
