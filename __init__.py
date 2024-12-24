@@ -3,6 +3,7 @@ import paho.mqtt.client as mqtt
 from flask import redirect
 from sqlalchemy import or_, delete
 from app.database import session_scope
+from app.database import row2dict
 from app.core.main.BasePlugin import BasePlugin
 from plugins.Mqtt.models.Mqtt import Topic
 from plugins.Mqtt.forms.SettingForms import SettingsForm
@@ -171,6 +172,8 @@ class Mqtt(BasePlugin):
                 property.value = value
                 property.updated = datetime.datetime.now()
                 session.commit()
+
+                self.sendDataToWebsocket("updateTopic",row2dict(property))
 
                 if property.linked_object:
                     if property.linked_method:

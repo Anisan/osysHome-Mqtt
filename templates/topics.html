@@ -24,7 +24,7 @@
             <tr>
                 <td class="py-1">{{ topic.title }}</td>
                 <td class="py-1">{{ topic.path }}</td>
-                <td class="py-1">{{ topic.value }}</td>
+                <td class="py-1" id="dev{{topic.id}}_value">{{ topic.value }}</td>
                 <td class="py-1">
                     {%if topic.linked_object%}
                         {{ topic.linked_object }}.{%if topic.linked_property%}{{ topic.linked_property }}{% endif %}{%if topic.linked_method%}{{ topic.linked_method }}{% endif %}
@@ -86,5 +86,25 @@
             </div>
         </div>
     </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        socket.on('connect', function() {
+            sid = socket.id;
+            socket.emit('subscribeData',["Mqtt"]);
+        });
+        socket.on('Mqtt', function(data) {
+            //console.log(data)
+            if (data.operation == "updateTopic"){
+                id = "dev"+data.data['id']+"_value"
+                document.getElementById(id).innerHTML  = data.data.value;
+                id = "dev"+data.data['id']+"_updated"
+                document.getElementById(id).innerHTML  = data.data.updated;
+            }
+
+        });
+        socket.emit('subscribeData',["Mqtt"]);
+    })
+</script>
 
 {% endblock %}
