@@ -10,6 +10,7 @@ from plugins.Mqtt.forms.SettingForms import SettingsForm
 from plugins.Mqtt.forms.TopicForm import routeTopic
 from app.core.lib.object import callMethodThread, setPropertyThread, updatePropertyThread
 from app.core.lib.common import addNotify, CategoryNotify
+from app.api import api
 
 
 class Mqtt(BasePlugin):
@@ -23,6 +24,10 @@ class Mqtt(BasePlugin):
         self.actions = ['cycle','search']
         self._client = None
         self.cache_devices = {}
+
+        from plugins.Mqtt.api import create_api_ns
+        api_ns = create_api_ns()
+        api.add_namespace(api_ns, path="/mqtt")
 
     def initialization(self):
         # Создаем клиент MQTT
@@ -61,6 +66,7 @@ class Mqtt(BasePlugin):
             settings.topic.data = self.config.get('topic','')
             settings.login.data = self.config.get('login','')
             settings.password.data = self.config.get('password','')
+            settings.auto_add.data = self.config.get('auto_add',False)
         else:
             if settings.validate_on_submit():
                 self.config["host"] = settings.host.data
@@ -68,6 +74,7 @@ class Mqtt(BasePlugin):
                 self.config["topic"] = settings.topic.data
                 self.config["login"] = settings.login.data
                 self.config["password"] = settings.password.data
+                self.config["auto_add"] = settings.auto_add.data
                 self.saveConfig()
                 return redirect("Mqtt")
 
@@ -161,7 +168,15 @@ class Mqtt(BasePlugin):
         with session_scope() as session:
             properties = session.query(Topic).filter(Topic.path == path).all()
             if not properties:
-                return
+                if self.config.get('auto_add',False):
+                    item = Topic()
+                    item.path = path
+                    item.title = path
+                    session.add(item)
+                    session.commit()
+                    properties.append(item)
+                else:
+                    return
             for property in properties:
                 if property.only_new_value and property.value == value:
                     continue

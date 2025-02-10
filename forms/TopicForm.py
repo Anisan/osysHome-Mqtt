@@ -1,15 +1,15 @@
 from flask_wtf import FlaskForm
 from wtforms import StringField, BooleanField, RadioField
-from wtforms.validators import DataRequired
+from wtforms.validators import DataRequired, Optional
 from app.database import db
 from plugins.Mqtt.models.Mqtt import Topic
 
 class TopicForm(FlaskForm):
     title = StringField('Title', validators=[DataRequired()])
     path = StringField('Path', validators=[DataRequired()])
-    path_write = StringField('Path write')
-    linked_object = StringField('Linked object')
-    linked_property = StringField('Linked property')
+    path_write = StringField('Path write', validators=[Optional()])
+    linked_object = StringField('Linked object', validators=[Optional()])
+    linked_property = StringField('Linked property', validators=[Optional()])
     linked_method = StringField('Linked method')
     qos = RadioField('QOS', choices=[(0, '0'), (1, '1'), (2, '2')],default=0)
     retain = BooleanField('Retain', default=False)
@@ -29,6 +29,7 @@ def routeTopic(request):
     from app.core.lib.object import setLinkToObject, removeLinkFromObject
 
     if request.method == 'POST':
+        form = TopicForm(request.form)
         if form.validate_on_submit():
             if id:
                 oldLinkedObject = item.linked_object
