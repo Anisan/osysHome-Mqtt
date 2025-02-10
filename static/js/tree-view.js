@@ -64,11 +64,11 @@ Vue.component('tree-view', {
         <div @click="toggle(key)" class="d-flex align-items-center">
             <i v-if="hasChildren(value) && !isExpanded(key)" class="fas fa-folder me-2" style="font-size: 1.2rem;"></i>
             <i v-if="hasChildren(value) && isExpanded(key)" class="fas fa-folder-open me-2" style="font-size: 1.2rem;"></i>
-            <a v-if="!hasChildren(value)" :href="'?op=edit&topic='+value.id">{{ key }}</a>
+            <a v-if="value.id" :href="'?op=edit&topic='+value.id">{{ key }}</a>
             <strong v-else>{{ key }}</strong>
             
             <!-- Если это листовой узел, отображаем значение и время -->
-            <span v-if="!hasChildren(value)" class="ms-2">
+            <span v-if="value.id" class="ms-2">
                 <span class="tree-value">: {{ value.value }} </span>
                 <span v-if="value.linked_object" class="tree-link">({{ value.linked_object }}.{{value.linked_property}}{{value.linked_method}})</span>
                 <a :href="'?op=delete&topic='+value.id" onClick="return confirm('Are you sure? Please confirm.')" title="Delete" class="link"><i class="feather icon-trash text-danger"></i></a>
