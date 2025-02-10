@@ -22,7 +22,6 @@ def build_topic_tree(topics_data):
     for topic_rec in topics_data:
         parts = topic_rec.path.split('/')
         current_level = tree
-        is_leaf = True  # Флаг для определения, является ли узел листовым
         
         for i, part in enumerate(parts):
             if part == "":
@@ -31,13 +30,11 @@ def build_topic_tree(topics_data):
                 if part not in current_level:
                     current_level[part] = {"children": {}}
                 current_level = current_level[part]["children"]
-                is_leaf = False  # Родительские узлы не являются листовыми
             else:  # Последняя часть — это листовой узел
                 if part not in current_level:
-                    current_level[part] = {}
+                    current_level[part] = {"children": {}}
                 data = row2dict(topic_rec)
                 current_level[part].update(data)  # Добавляем данные
-                current_level[part]["is_leaf"] = True  # Устанавливаем флаг
                 
     return tree
 
