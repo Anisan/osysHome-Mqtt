@@ -100,31 +100,35 @@ class Mqtt(BasePlugin):
             self.event.wait(1.0)
 
     def mqttPublish(self, topic, value, qos=0, retain=False):
-        self.logger.info("Publish: %s - %s",topic,value)
+        self.logger.debug("Pubs: %s - %s",topic,value)
         self._client.publish(topic, str(value), qos=qos, retain=retain)
 
     def changeLinkedProperty(self, obj, prop, val):
-        with session_scope() as session:
-            properties = session.query(Topic).filter(Topic.linked_object == obj, Topic.linked_property == prop).all()
-            if len(properties) == 0:
-                from app.core.lib.object import removeLinkFromObject
-                removeLinkFromObject(obj, prop, "Mqtt")
-                return
-            for property in properties:
-                new_value = val
+        try:
+            with session_scope() as session:
+                properties = session.query(Topic).filter(Topic.linked_object == obj, Topic.linked_property == prop).all()
+                if len(properties) == 0:
+                    from app.core.lib.object import removeLinkFromObject
+                    removeLinkFromObject(obj, prop, "Mqtt")
+                    return
+                for property in properties:
+                    new_value = val
 
-                if property.readonly:
-                    continue
+                    if property.readonly:
+                        continue
 
-                if property.replace_list:
-                    replaceList = self.parseReplaceValue(property.replace_list)
-                    new_value = replaceList[str(val)]
+                    if property.replace_list:
+                        replaceList = self.parseReplaceValue(property.replace_list)
+                        new_value = replaceList[str(val)]
 
-                # send to mqtt
-                topic = property.path
-                if property.path_write:
-                    topic = property.path_write
-                self.mqttPublish(topic, new_value, property.qos, property.retain)
+                    # send to mqtt
+                    topic = property.path
+                    if property.path_write:
+                        topic = property.path_write
+                    self.mqttPublish(topic, new_value, property.qos, property.retain)
+        except Exception as e:
+            self.logger.error("Error processing linked property %s.%s=%s: %s", obj, prop, val, e)
+
 
     # Функция обратного вызова для подключения к брокеру MQTT
     def on_connect(self,client, userdata, flags, rc):
@@ -152,19 +156,19 @@ class Mqtt(BasePlugin):
 
     # Функция обратного вызова для получения сообщений
     def on_message(self,client, userdata, msg):
-        # self.logger.debug(msg.topic + " " + str(msg.payload))
-        payload = msg.payload.decode('utf-8')
-
-        if '/set' in msg.topic:
-            return
-
-        if not payload:
-            return False
-
-        self.processMessage(msg.topic, payload)
+        self.logger.debug("Subs: %s - %s",msg.topic, str(msg.payload))
+        
+        try:
+            payload = msg.payload.decode('utf-8')
+            if '/set' in msg.topic:
+                return
+            if not payload:
+                return False
+            self.processMessage(msg.topic, payload)
+        except Exception as e:
+            self.logger.error("Error processing message: %s", e)
 
     def processMessage(self, path, value):
-        self.logger.debug(f'Topic {path} = {value}')
         with session_scope() as session:
             properties = session.query(Topic).filter(Topic.path == path).all()
             if not properties:
