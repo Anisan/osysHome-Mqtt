@@ -2,7 +2,8 @@ import json
 from flask import request, jsonify
 from flask_restx import Namespace, Resource
 from sqlalchemy import delete
-from app.api.decorators import api_key_required, role_required
+from app.api.decorators import api_key_required
+from app.authentication.handlers import handle_admin_required
 from app.api.models import model_404, model_result
 from plugins.Mqtt.models.Mqtt import Topic
 from app.database import row2dict, session_scope
@@ -41,7 +42,7 @@ def build_topic_tree(topics_data):
 @_api_ns.route("/topics", endpoint="mtqq_topics")
 class GetTopics(Resource):
     @api_key_required
-    @role_required("admin")
+    @handle_admin_required
     @_api_ns.doc(security="apikey")
     @_api_ns.response(200, "List tasks", response_result)
     def get(self):
