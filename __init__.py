@@ -157,18 +157,17 @@ class Mqtt(BasePlugin):
     # Функция обратного вызова для получения сообщений
     def on_message(self,client, userdata, msg):
         self.logger.debug("Subs: %s - %s",msg.topic, str(msg.payload))
-        
         try:
-            payload = msg.payload.decode('utf-8')
+            payload = msg.payload
             if '/set' in msg.topic:
                 return
             if not payload:
                 return False
             self.processMessage(msg.topic, payload)
         except Exception as e:
-            self.logger.error("Error processing message: %s", e)
+            self.logger.error("Error processing message: %s", e, exc_info=True)
 
-    def processMessage(self, path, value):
+    def processMessage(self, path, payload):
         with session_scope() as session:
             properties = session.query(Topic).filter(Topic.path == path).all()
             if not properties:
@@ -182,6 +181,19 @@ class Mqtt(BasePlugin):
                 else:
                     return
             for property in properties:
+                value = None
+                try:
+                    value = payload.decode('utf-8')
+                except UnicodeDecodeError:
+                    property.value = "Binary data not saveв"
+                    property.updated = datetime.datetime.now()
+                    session.commit()
+                    self.sendDataToWebsocket("updateTopic",row2dict(property))
+
+                    if property.linked_object and property.linked_method:
+                        callMethodThread(property.linked_object + '.' + property.linked_method, {'VALUE': payload, 'NEW_VALUE': payload, 'TITLE': property.title}, self.name)
+                        return
+
                 if property.only_new_value and property.value == value:
                     continue
                 old_value = property.value
@@ -196,7 +208,7 @@ class Mqtt(BasePlugin):
 
                 if property.linked_object:
                     if property.linked_method:
-                        callMethodThread(property.linked_object + '.' + property.linked_method, {'VALUE': value, 'NEW_VALUE': value, 'OLD_VALUE': old_value, 'TITLE': property.title},self.name)
+                        callMethodThread(property.linked_object + '.' + property.linked_method, {'VALUE': value, 'NEW_VALUE': value, 'OLD_VALUE': old_value, 'TITLE': property.title}, self.name)
                     if property.linked_property:
                         if property.only_new_value:
                             updatePropertyThread(property.linked_object + '.' + property.linked_property, value, self.name)
