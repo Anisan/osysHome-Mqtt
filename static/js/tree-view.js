@@ -68,11 +68,13 @@ Vue.component('tree-view', {
             <strong v-else>{{ key }}</strong>
             
             <!-- Если это листовой узел, отображаем значение и время -->
-            <span v-if="value.id" class="ms-2">
+            <span v-if="value.value" class="ms-2">
                 <span class="tree-value">: {{ value.value }} </span>
                 <span v-if="value.linked_object" class="tree-link">({{ value.linked_object }}.{{value.linked_property}}{{value.linked_method}})</span>
-                <a :href="'?op=delete&topic='+value.id" onClick="return confirm('Are you sure? Please confirm.')" title="Delete" class="link"><i class="feather icon-trash text-danger"></i></a>
+                <small v-if="value.updated" class="fw-light">{{value.updated}}</small>
             </span>
+            <a v-if="value.id" :href="'?op=delete&topic='+value.id" onClick="return confirm('Are you sure? Please confirm.')" title="Delete" class="link ms-2"><i class="feather icon-trash text-danger"></i></a>
+
         </div>
         <!-- Если есть дочерние элементы и они развернуты, отображаем их -->
         <tree-view v-if="value.children && isExpanded(key)" 

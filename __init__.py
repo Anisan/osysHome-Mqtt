@@ -186,7 +186,7 @@ class Mqtt(BasePlugin):
                     value = payload.decode('utf-8')
                 except UnicodeDecodeError:
                     property.value = "Binary data not saveв"
-                    property.updated = datetime.datetime.now()
+                    property.updated = datetime.datetime.now(datetime.timezone.utc)
                     session.commit()
                     self.sendDataToWebsocket("updateTopic",row2dict(property))
 
@@ -201,7 +201,7 @@ class Mqtt(BasePlugin):
                     replaceList = self.parseReplaceName(property.replace_list)
                     value = replaceList[value]
                 property.value = value
-                property.updated = datetime.datetime.now()
+                property.updated = datetime.datetime.now(datetime.timezone.utc)
                 session.commit()
 
                 self.sendDataToWebsocket("updateTopic",row2dict(property))
