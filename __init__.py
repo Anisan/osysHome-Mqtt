@@ -3,7 +3,7 @@ import paho.mqtt.client as mqtt
 from flask import redirect
 from sqlalchemy import or_, delete
 from app.database import session_scope
-from app.database import row2dict
+from app.database import row2dict, get_now_to_utc
 from app.core.main.BasePlugin import BasePlugin
 from plugins.Mqtt.models.Mqtt import Topic
 from plugins.Mqtt.forms.SettingForms import SettingsForm
@@ -186,7 +186,7 @@ class Mqtt(BasePlugin):
                     value = payload.decode('utf-8')
                 except UnicodeDecodeError:
                     property.value = "Binary data not saveв"
-                    property.updated = datetime.datetime.now(datetime.timezone.utc)
+                    property.updated = get_now_to_utc()
                     session.commit()
                     self.sendDataToWebsocket("updateTopic",row2dict(property))
 
@@ -201,7 +201,7 @@ class Mqtt(BasePlugin):
                     replaceList = self.parseReplaceName(property.replace_list)
                     value = replaceList[value]
                 property.value = value
-                property.updated = datetime.datetime.now(datetime.timezone.utc)
+                property.updated = get_now_to_utc()
                 session.commit()
 
                 self.sendDataToWebsocket("updateTopic",row2dict(property))
