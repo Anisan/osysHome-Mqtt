@@ -1,29 +1,29 @@
 {% extends "layouts/module_admin.html" %}
 {% block breadcrumb %}
-<li class="breadcrumb-item"><a href="Mqtt">Mqtt</a></li>
+<li class="breadcrumb-item"><a href="Mqtt">MQTT</a></li>
 {% endblock %}
 {% block module %}
 <div>
     <div id="mqtt_app">
         <div class="d-flex align-items-center">
-            <div class="btn btn-primary me-2 text-nowrap" @click="fetchTopics" title="Refresh">
+            <div class="btn btn-primary me-2 text-nowrap" @click="fetchTopics" title="{{ _('Refresh')}}">
                 <span class="fas fa-rotate me-2" :class="loading ? 'fa-spin':''"></span>
-                Refresh
+                {{ _('Refresh')}}
             </div>
-            <a href="?op=add" class="btn btn-success text-nowrap me-2" title="Add"><span class="fas fa-plus me-2"></span>Add topic</a>
+            <a href="?op=add" class="btn btn-success text-nowrap me-2" title="Add"><span class="fas fa-plus me-2"></span>{{ _('Add topic')}}</a>
             <span class="form-check me-2">
                 <input class="form-check-input" type="checkbox" v-model="only_linked">
                 <label class="form-check-label text-nowrap">
-                View only linked
+                {{ _('View only linked')}}
                 </label>
             </span>
             <div class="input-group me-2">
-                <input type="text" class="form-control" placeholder="Filter topics..." v-model="filterText">
-                <button class="btn btn-outline-secondary" @click="clearFilter"><span class="fas fa-broom me-2"></span>Clear</button>
+                <input type="text" class="form-control" placeholder="{{ _('Filter topics...')}}" v-model="filterText">
+                <button class="btn btn-outline-secondary" @click="clearFilter"><span class="fas fa-broom me-2"></span>{{ _('Clear')}}</button>
             </div>
             <button type="button" class="btn btn-primary text-nowrap" data-bs-toggle="modal" data-bs-target="#exampleModal">
                 <span class="fas fa-gear me-2"></span>
-                Settings
+                {{ _('Settings')}}
             </button>
         </div>
         <tree-view :data="filteredData" :expanded-state="expandedState" @save-expanded-state="saveExpandedState"></tree-view>
@@ -45,40 +45,40 @@
             <div class="modal-content">
                 <form  method="POST">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="exampleModalLabel">Settings</h5>
+                    <h5 class="modal-title" id="exampleModalLabel">{{ _('Settings')}}</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     <!-- Поля формы -->
                     {{ form.hidden_tag() }}
                     <div class="mb-3">
-                        {{ form.host.label(class="form-label") }}
+                        <label class="form-label">{{ _('Host') }}</label>
                         {{ form.host(class="form-control") }}
                     </div>
                     <div class="mb-3">
-                        {{ form.port.label(class="form-label") }}
+                        <label class="form-label">{{ _('Port') }}</label>
                         {{ form.port(class="form-control") }}
                     </div>
                     <div class="mb-3">
-                        {{ form.login.label(class="form-label") }}
+                        <label class="form-label">{{ _('Username') }}</label>
                         {{ form.login(class="form-control") }}
                     </div>
                     <div class="mb-3">
-                        {{ form.password.label(class="form-label") }}
+                        <label class="form-label">{{ _('Password') }}</label>
                         {{ form.password(class="form-control") }}
                     </div>
                     <div class="mb-3">
-                        {{ form.topic.label(class="form-label") }}
+                        <label class="form-label">{{ _('Subscribe topics') }}</label>
                         {{ form.topic(class="form-control") }}
                     </div>
                     <div class="mb-3">
-                        {{ form.auto_add.label(class="form-label me-2") }}
+                        <label class="form-label">{{ _('Auto add topics') }}</label>
                         {{ form.auto_add(class="form-check-input") }}
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                    <button type="submit" class="btn btn-primary">Submit</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ _('Close')}}</button>
+                    <button type="submit" class="btn btn-primary">{{ _('Submit')}}</button>
                 </div>
                 </form>
             </div>
