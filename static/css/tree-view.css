@@ -38,7 +38,7 @@
   left:0
 }
 .tree ul li:last-child:before {
-  background:#fff;
+  background:var(--bs-body-bg);
   height:auto;
   top:1em;
   bottom:0
