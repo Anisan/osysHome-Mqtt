@@ -245,3 +245,20 @@ class Mqtt(BasePlugin):
         for topic in topics:
             res.append({"url":f'Mqtt?op=edit&topic={topic.id}', "title":f'{topic.title} ({topic.path})', "tags":[{"name":"Mqtt","color":"warning"}]})
         return res
+    
+    def changeObject(self, event, object_name, property_name, method_name, new_value):
+        with session_scope() as session:
+            topics = session.query(Topic).filter(Topic.linked_object == object_name).all()
+            for topic in topics:
+                if new_value is None:
+                    topic.linked_object = None
+                    topic.linked_property = None
+                    topic.linked_method = None
+                elif property_name is None and method_name is None:
+                    topic.linked_object = new_value
+                elif property_name:
+                    topic.linked_property = new_value
+                elif method_name:
+                    topic.linked_method = new_value
+
+            session.commit()
