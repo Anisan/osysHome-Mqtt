@@ -70,7 +70,7 @@ Vue.component('tree-view', {
             <!-- Если это листовой узел, отображаем значение и время -->
             <span v-if="value.value" class="ms-2">
                 <span class="tree-value">: {{ value.value }} </span>
-                <a v-if="value.linked_object && value.linked_object" class="tree-link badge bg-secondary" :href="'/admin/Objects?view=object&object='+value.linked_object+'&tab=properties'">{{ value.linked_object }}.{{value.linked_property}}</a>
+                <a v-if="value.linked_object && value.linked_property" class="tree-link badge bg-secondary" :href="'/admin/Objects?view=object&object='+value.linked_object+'&tab=properties'">{{ value.linked_object }}.{{value.linked_property}}</a>
                 <a v-if="value.linked_object && value.linked_method" class="tree-link badge bg-secondary" :href="'/admin/Objects?view=object&object='+value.linked_object+'&tab=methods'">{{ value.linked_object }}.{{value.linked_method}}</a>
                 <small v-if="value.updated" class="fw-light">{{value.updated}}</small>
             </span>
