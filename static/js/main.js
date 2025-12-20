@@ -8,13 +8,20 @@ new Vue({
         filterText:"",
         loading: true,
         socket:null,
+        connectionStatus: "unknown",
+        reconnectAttempts: 0,
     },
     async created() {
       await this.fetchTopics()
       this.restoreExpandedState(); // Восстановление состояния из localStorage
       this.only_linked = JSON.parse(localStorage.getItem('only_linked_mqtt')) || false;
       this.filterText = localStorage.getItem('filter_text_mqtt') ?? ''
-      this.connectSocket(); 
+      this.connectSocket();
+      this.fetchConnectionStatus();
+      // Обновляем статус каждые 5 секунд
+      setInterval(() => {
+        this.fetchConnectionStatus();
+      }, 5000);
     },
     mounted() {
 
@@ -33,6 +40,31 @@ new Vue({
           return this.filterTree(this.topicTree)
         }
         return this.topicTree
+      },
+      connectionStatusClass() {
+        const status = this.connectionStatus.toLowerCase();
+        if (status === 'connected') return 'bg-success';
+        if (status === 'connecting') return 'bg-warning';
+        if (status === 'error') return 'bg-danger';
+        return 'bg-secondary';
+      },
+      connectionStatusIcon() {
+        const status = this.connectionStatus.toLowerCase();
+        if (status === 'connected') return 'fa-circle-check';
+        if (status === 'connecting') return 'fa-circle-notch fa-spin';
+        if (status === 'error') return 'fa-circle-exclamation';
+        return 'fa-circle-question';
+      },
+      connectionStatusText() {
+        const status = this.connectionStatus.toLowerCase();
+        const texts = {
+          'connected': 'Подключено к MQTT брокеру',
+          'connecting': 'Подключение к MQTT брокеру...',
+          'disconnected': 'Отключено от MQTT брокера',
+          'error': 'Ошибка подключения к MQTT брокеру',
+          'unknown': 'Статус подключения неизвестен'
+        };
+        return texts[status] || texts['unknown'];
       }
     },
     methods: {
@@ -58,9 +90,25 @@ new Vue({
               const leafKey = parts[parts.length - 1];
               currentLevel[leafKey]['value'] = updatedData['value']
               currentLevel[leafKey]['updated'] = updatedData['updated']
+          } else if (data.operation == "connectionStatus") {
+            // Обновляем статус подключения из WebSocket
+            const statusData = data.data;
+            this.connectionStatus = statusData.status || 'unknown';
+            this.reconnectAttempts = statusData.reconnect_attempts || 0;
           }
-
         });
+      },
+      async fetchConnectionStatus() {
+        try {
+          const response = await axios.get('/api/mqtt/status');
+          if (response.data) {
+            this.connectionStatus = response.data.status || 'unknown';
+            this.reconnectAttempts = response.data.reconnect_attempts || 0;
+          }
+        } catch (error) {
+          console.error("Error fetching connection status:", error);
+          this.connectionStatus = 'error';
+        }
       },
         async fetchTopics() {
             this.loading = true

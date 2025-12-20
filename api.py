@@ -7,6 +7,7 @@ from app.authentication.handlers import handle_admin_required
 from app.api.models import model_404, model_result
 from plugins.Mqtt.models.Mqtt import Topic
 from app.database import row2dict, session_scope
+from app.core.main.PluginsHelper import plugins
 
 _api_ns = Namespace(name="MQTT", description="MQTT namespace", validate=True)
 
@@ -16,6 +17,13 @@ response_404 = _api_ns.model("Error", model_404)
 
 def create_api_ns():
     return _api_ns
+
+
+def get_mqtt_plugin():
+    """Получить экземпляр плагина MQTT"""
+    if "Mqtt" in plugins:
+        return plugins["Mqtt"]["instance"]
+    return None
 
 
 def build_topic_tree(topics_data):
@@ -50,5 +58,33 @@ class GetTopics(Resource):
             topics = session.query(Topic).all()
             topic_tree = build_topic_tree(topics)
             return jsonify(topic_tree)
+
+
+@_api_ns.route("/status", endpoint="mqtt_status")
+class GetStatus(Resource):
+    @api_key_required
+    @handle_admin_required
+    @_api_ns.doc(security="apikey")
+    @_api_ns.response(200, "Connection status", response_result)
+    def get(self):
+        """Получить статус подключения MQTT"""
+        plugin = get_mqtt_plugin()
+        if plugin is None:
+            return {"status": "error", "message": "MQTT plugin not found"}, 404
+        
+        is_connected = False
+        if plugin._client is not None:
+            try:
+                is_connected = plugin._client.is_connected()
+            except:
+                is_connected = False
+        
+        status_data = {
+            "status": plugin._connection_status,
+            "reconnect_attempts": plugin._reconnect_attempts,
+            "is_connected": is_connected
+        }
+        
+        return jsonify(status_data)
 
 

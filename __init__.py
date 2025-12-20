@@ -1,4 +1,5 @@
 import datetime
+import time
 import paho.mqtt.client as mqtt
 from flask import redirect
 from sqlalchemy import or_, delete
@@ -24,26 +25,120 @@ class Mqtt(BasePlugin):
         self.actions = ['cycle','search']
         self._client = None
         self.cache_devices = {}
+        self._connection_status = "disconnected"  # disconnected, connecting, connected, error
+        self._reconnect_attempts = 0
+        self._max_reconnect_attempts = 5
+        self._reconnect_delay = 5  # секунд
+        self._last_reconnect_time = 0
 
         from plugins.Mqtt.api import create_api_ns
         api_ns = create_api_ns()
         api.add_namespace(api_ns, path="/mqtt")
 
-    def initialization(self):
-        # Создаем клиент MQTT
-        self._client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1)
-        # Назначаем функции обратного вызова
-        self._client.on_connect = self.on_connect
-        self._client.on_disconnect = self.on_disconnect
-        self._client.on_message = self.on_message
+    def _update_connection_status(self, status, error_message=None):
+        """Обновляет статус подключения и отправляет его через WebSocket"""
+        self._connection_status = status
+        status_data = {
+            "status": status,
+            "error": error_message,
+            "reconnect_attempts": self._reconnect_attempts
+        }
+        self.sendDataToWebsocket("connectionStatus", status_data)
+        self.logger.info(f"MQTT connection status: {status}" + (f" - {error_message}" if error_message else ""))
 
-        if "host" in self.config:
-            if self.config.get("login",'') != '' and self.config.get("password",'') != '':
-                self._client.username_pw_set(self.config["login"], self.config["password"])
-            # Подключаемся к брокеру MQTT
-            self._client.connect(self.config.get("host",""), 1883, 0)
+    def _connect_mqtt(self):
+        """Безопасное подключение к MQTT брокеру"""
+        try:
+            # Проверяем наличие хоста в конфигурации
+            host = self.config.get("host", "").strip()
+            if not host:
+                self._update_connection_status("disconnected", "Host not configured")
+                return False
+
+            # Если клиент уже существует и подключен, не переподключаемся
+            if self._client is not None:
+                try:
+                    if self._client.is_connected():
+                        return True
+                    # Если не подключен, останавливаем старый клиент
+                    try:
+                        self._client.loop_stop()
+                        self._client.disconnect()
+                    except:
+                        pass
+                except:
+                    pass
+
+            self._update_connection_status("connecting")
+            
+            # Создаем новый клиент MQTT
+            self._client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1)
+            # Назначаем функции обратного вызова
+            self._client.on_connect = self.on_connect
+            self._client.on_disconnect = self.on_disconnect
+            self._client.on_message = self.on_message
+
+            # Устанавливаем учетные данные, если они есть
+            login = self.config.get("login", "").strip()
+            password = self.config.get("password", "").strip()
+            if login and password:
+                self._client.username_pw_set(login, password)
+
+            # Получаем порт из конфигурации
+            port = self.config.get("port", 1883)
+            if not isinstance(port, int):
+                try:
+                    port = int(port)
+                except:
+                    port = 1883
+
+            # Подключаемся к брокеру MQTT с таймаутом
+            self._client.connect(host, port, keepalive=60)
             # Запускаем цикл обработки сообщений в отдельном потоке
             self._client.loop_start()
+            
+            # Даем время на подключение
+            time.sleep(1)
+            
+            # Даем немного больше времени на подключение и проверяем статус
+            time.sleep(0.5)
+            try:
+                if self._client.is_connected():
+                    self._reconnect_attempts = 0
+                    return True
+                else:
+                    # Проверяем еще раз через небольшую задержку
+                    time.sleep(0.5)
+                    if self._client.is_connected():
+                        self._reconnect_attempts = 0
+                        return True
+                    else:
+                        self._update_connection_status("error", "Connection timeout")
+                        return False
+            except Exception as e:
+                self.logger.error(f"Error checking connection status: {e}")
+                self._update_connection_status("error", f"Connection check failed: {str(e)}")
+                return False
+
+        except Exception as e:
+            error_msg = f"Connection error: {str(e)}"
+            self.logger.error(error_msg, exc_info=True)
+            self._update_connection_status("error", error_msg)
+            if self._client:
+                try:
+                    self._client.loop_stop()
+                except:
+                    pass
+                self._client = None
+            return False
+
+    def initialization(self):
+        """Инициализация модуля MQTT с безопасным подключением"""
+        try:
+            self._connect_mqtt()
+        except Exception as e:
+            self.logger.error(f"Error during MQTT initialization: {e}", exc_info=True)
+            self._update_connection_status("error", f"Initialization failed: {str(e)}")
 
     def admin(self, request):
         op = request.args.get('op', '')
@@ -76,6 +171,16 @@ class Mqtt(BasePlugin):
                 self.config["password"] = settings.password.data
                 self.config["auto_add"] = settings.auto_add.data
                 self.saveConfig()
+                # Переподключаемся с новыми настройками
+                if self._client is not None:
+                    try:
+                        self._client.loop_stop()
+                        self._client.disconnect()
+                    except:
+                        pass
+                    self._client = None
+                self._reconnect_attempts = 0
+                self._connect_mqtt()
                 return redirect("Mqtt")
 
         if result[0] == 'topics.html':
@@ -90,18 +195,63 @@ class Mqtt(BasePlugin):
         return self.render(result[0], result[1])
 
     def cyclic_task(self):
+        """Циклическая задача для управления подключением и переподключением"""
         if self.event.is_set():
             # Отключаемся от брокера MQTT
-            self._client.disconnect()
-            # Останавливаем цикл обработки сообщений
-            self._client.loop_stop()
-            self._client = None
+            if self._client is not None:
+                try:
+                    self._client.loop_stop()
+                    self._client.disconnect()
+                except Exception as e:
+                    self.logger.error(f"Error disconnecting MQTT client: {e}")
+                finally:
+                    self._client = None
+            self._update_connection_status("disconnected")
         else:
+            # Проверяем статус подключения и переподключаемся при необходимости
+            is_connected = False
+            if self._client is not None:
+                try:
+                    is_connected = self._client.is_connected()
+                except:
+                    is_connected = False
+            
+            # Используем наш флаг статуса как дополнительную проверку
+            if not is_connected or self._connection_status not in ["connected", "connecting"]:
+                current_time = time.time()
+                # Проверяем, прошло ли достаточно времени с последней попытки переподключения
+                if current_time - self._last_reconnect_time >= self._reconnect_delay:
+                    if self._reconnect_attempts < self._max_reconnect_attempts:
+                        self._reconnect_attempts += 1
+                        self._last_reconnect_time = current_time
+                        self.logger.info(f"Attempting to reconnect MQTT (attempt {self._reconnect_attempts}/{self._max_reconnect_attempts})")
+                        self._connect_mqtt()
+                    else:
+                        # Превышено максимальное количество попыток
+                        if self._connection_status != "error":
+                            self._update_connection_status("error", "Max reconnect attempts reached")
+            else:
+                # Подключение активно, сбрасываем счетчик попыток
+                if self._reconnect_attempts > 0:
+                    self._reconnect_attempts = 0
+            
             self.event.wait(1.0)
 
     def mqttPublish(self, topic, value, qos=0, retain=False):
-        self.logger.debug("Pubs: %s - %s",topic,value)
-        self._client.publish(topic, str(value), qos=qos, retain=retain)
+        """Публикация сообщения в MQTT топик с проверкой подключения"""
+        if self._client is None or not self._client.is_connected():
+            self.logger.warning(f"Cannot publish to {topic}: MQTT client not connected")
+            return False
+        try:
+            self.logger.debug("Pubs: %s - %s", topic, value)
+            result = self._client.publish(topic, str(value), qos=qos, retain=retain)
+            if result.rc != mqtt.MQTT_ERR_SUCCESS:
+                self.logger.error(f"Failed to publish to {topic}: error code {result.rc}")
+                return False
+            return True
+        except Exception as e:
+            self.logger.error(f"Error publishing to {topic}: {e}", exc_info=True)
+            return False
 
     def changeLinkedProperty(self, obj, prop, val):
         try:
@@ -131,28 +281,62 @@ class Mqtt(BasePlugin):
 
 
     # Функция обратного вызова для подключения к брокеру MQTT
-    def on_connect(self,client, userdata, flags, rc):
-        self.logger.info("Connected with result code " + str(rc))
-        # Подписываемся на топик
-        if self.config["topic"]:
-            topics = self.config["topic"].split(',')
-            for topic in topics:
-                self._client.subscribe(topic)
+    def on_connect(self, client, userdata, flags, rc):
+        """Обработчик успешного подключения к MQTT брокеру"""
+        if rc == 0:
+            self.logger.info("Connected to MQTT broker successfully")
+            self._reconnect_attempts = 0
+            self._update_connection_status("connected")
+            
+            # Подписываемся на топики
+            topic_config = self.config.get("topic", "").strip()
+            if topic_config:
+                topics = [t.strip() for t in topic_config.split(',') if t.strip()]
+                for topic in topics:
+                    try:
+                        result = self._client.subscribe(topic)
+                        if result[0] == mqtt.MQTT_ERR_SUCCESS:
+                            self.logger.info(f"Subscribed to topic: {topic}")
+                        else:
+                            self.logger.error(f"Failed to subscribe to {topic}: error code {result[0]}")
+                    except Exception as e:
+                        self.logger.error(f"Error subscribing to {topic}: {e}")
+        else:
+            error_messages = {
+                1: "Connection refused - incorrect protocol version",
+                2: "Connection refused - invalid client identifier",
+                3: "Connection refused - server unavailable",
+                4: "Connection refused - bad username or password",
+                5: "Connection refused - not authorised"
+            }
+            error_msg = error_messages.get(rc, f"Connection failed with code {rc}")
+            self.logger.error(f"MQTT connection failed: {error_msg}")
+            self._update_connection_status("error", error_msg)
 
     def on_disconnect(self, client, userdata, rc):
-        addNotify("Disconnect MQTT",str(rc),CategoryNotify.Error,self.name)
+        """Обработчик отключения от MQTT брокера"""
         if rc == 0:
             self.logger.info("Disconnected gracefully.")
-        elif rc == 1:
-            self.logger.info("Client requested disconnection.")
-        elif rc == 2:
-            self.logger.info("Broker disconnected the client unexpectedly.")
-        elif rc == 3:
-            self.logger.info("Client exceeded timeout for inactivity.")
-        elif rc == 4:
-            self.logger.info("Broker closed the connection.")
+            self._update_connection_status("disconnected")
         else:
-            self.logger.warning("Unexpected disconnection with code: %s", rc)
+            # Неожиданное отключение - будет попытка переподключения
+            disconnect_messages = {
+                1: "Client requested disconnection",
+                2: "Broker disconnected the client unexpectedly",
+                3: "Client exceeded timeout for inactivity",
+                4: "Broker closed the connection"
+            }
+            msg = disconnect_messages.get(rc, f"Unexpected disconnection with code: {rc}")
+            self.logger.warning(f"MQTT {msg}")
+            
+            # Отправляем уведомление только для неожиданных отключений
+            if rc != 0:
+                addNotify("Disconnect MQTT", msg, CategoryNotify.Error, self.name)
+            
+            self._update_connection_status("disconnected", msg)
+            
+            # Сбрасываем счетчик попыток для новой серии переподключений
+            self._reconnect_attempts = 0
 
     # Функция обратного вызова для получения сообщений
     def on_message(self,client, userdata, msg):

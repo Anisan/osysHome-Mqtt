@@ -11,6 +11,15 @@
                 {{ _('Refresh')}}
             </div>
             <a href="?op=add" class="btn btn-success text-nowrap me-2" title="Add"><span class="fas fa-plus me-2"></span>{{ _('Add topic')}}</a>
+            <div class="me-2 d-flex align-items-center">
+                <span class="badge me-2" :class="connectionStatusClass" :title="connectionStatusText">
+                    <span class="fas me-1" :class="connectionStatusIcon"></span>
+                    [[ connectionStatus ]]
+                </span>
+                <small v-if="reconnectAttempts > 0" class="text-muted">
+                    ({{ _('Reconnect attempts')}}: [[ reconnectAttempts ]])
+                </small>
+            </div>
             <span class="form-check me-2">
                 <input class="form-check-input" type="checkbox" v-model="only_linked">
                 <label class="form-check-label text-nowrap">
