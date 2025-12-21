@@ -7,11 +7,19 @@ new Vue({
         only_linked: false,
         filterText:"",
         loading: true,
+        refreshed: false,
         socket:null,
         connectionStatus: "unknown",
         reconnectAttempts: 0,
+        refreshText: '',
+        updatedText: '',
     },
     async created() {
+      // Получаем переводы из data-атрибутов
+      const appElement = document.getElementById('mqtt_app');
+      this.refreshText = appElement.getAttribute('data-refresh-text') || 'Обновить';
+      this.updatedText = appElement.getAttribute('data-updated-text') || 'Обновлено';
+      
       await this.fetchTopics()
       this.restoreExpandedState(); // Восстановление состояния из localStorage
       this.only_linked = JSON.parse(localStorage.getItem('only_linked_mqtt')) || false;
@@ -65,6 +73,12 @@ new Vue({
           'unknown': 'Статус подключения неизвестен'
         };
         return texts[status] || texts['unknown'];
+      },
+      refreshButtonText() {
+        return this.refreshed ? this.updatedText : this.refreshText;
+      },
+      refreshButtonTitle() {
+        return this.refreshed ? this.updatedText : this.refreshText;
       }
     },
     methods: {
@@ -112,6 +126,7 @@ new Vue({
       },
         async fetchTopics() {
             this.loading = true
+            this.refreshed = false
             try {
               const response = await axios.get('/api/mqtt/topics');
               this.topicTree = response.data;
@@ -119,6 +134,10 @@ new Vue({
               console.error("Error fetching topics:", error);
             }
             this.loading = false
+            this.refreshed = true
+            setTimeout(() => {
+              this.refreshed = false
+            }, 2000)
           },
           restoreExpandedState() {
             const savedState = localStorage.getItem('expandedStateMqtt');

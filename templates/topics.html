@@ -4,11 +4,11 @@
 {% endblock %}
 {% block module %}
 <div>
-    <div id="mqtt_app">
+    <div id="mqtt_app" data-refresh-text="{{ _('Refresh')}}" data-updated-text="{{ _('Updated')}}">
         <div class="d-flex align-items-center">
-            <div class="btn btn-primary me-2 text-nowrap" @click="fetchTopics" title="{{ _('Refresh')}}">
-                <span class="fas fa-rotate me-2" :class="loading ? 'fa-spin':''"></span>
-                {{ _('Refresh')}}
+            <div class="btn btn-primary me-2 text-nowrap" @click="fetchTopics" :title="refreshButtonTitle">
+                <span class="fas me-2" :class="refreshed ? 'fa-check' : (loading ? 'fa-rotate fa-spin' : 'fa-rotate')"></span>
+                [[ refreshButtonText ]]
             </div>
             <a href="?op=add" class="btn btn-success text-nowrap me-2" title="Add"><span class="fas fa-plus me-2"></span>{{ _('Add topic')}}</a>
             <div class="me-2 d-flex align-items-center">
