@@ -83,7 +83,7 @@
 
 ```python
 val = getProperty("MqttWeather.payload")
-log("payload = " + str(val))
+logger.info("payload = %s", val)
 ```
 
 Запись значения (и проверка публикации в MQTT):

@@ -40,7 +40,7 @@
 ```python
 # Проверка: должно стать True
 state = getProperty("MQTTRelay.state")
-log("MQTT state = " + str(state))
+logger.info("MQTT state = %s", state)
 ```
 
 ## Сценарий 2: двусторонние команды с `Replace list` (OPEN/CLOSED)
@@ -121,7 +121,7 @@ setProperty("MQTTHouseDoor.open", False)
 ### 4) Проверка результата в osysHome
 ```python
 data = getProperty("MqttWeather.payload")
-log("Weather temp = " + str(data.get("temp")))
+logger.info("Weather temp = %s", data.get("temp") if data else None)
 ```
 
 ## REST API (для админа): быстрые проверки через `curl`
