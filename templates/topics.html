@@ -69,6 +69,10 @@
                         {{ form.port(class="form-control") }}
                     </div>
                     <div class="mb-3">
+                        <label class="form-label">{{ _('Protocol version') }}</label>
+                        {{ form.protocol(class="form-select") }}
+                    </div>
+                    <div class="mb-3">
                         <label class="form-label">{{ _('Username') }}</label>
                         {{ form.login(class="form-control") }}
                     </div>

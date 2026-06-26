@@ -11,6 +11,7 @@ from plugins.Mqtt.forms.SettingForms import SettingsForm
 from plugins.Mqtt.forms.TopicForm import routeTopic
 from app.core.lib.object import callMethodThread, setPropertyThread, updatePropertyThread
 from app.core.lib.common import addNotify, CategoryNotify
+from app.core.utilities.mqtt_errors import describe_mqtt_connect, describe_mqtt_disconnect
 from app.api import api
 
 
@@ -34,6 +35,16 @@ class Mqtt(BasePlugin):
         from plugins.Mqtt.api import create_api_ns
         api_ns = create_api_ns()
         api.add_namespace(api_ns, path="/mqtt")
+
+    def _get_mqtt_protocol(self):
+        """Возвращает константу версии протокола paho-mqtt из конфигурации."""
+        version = self.config.get("protocol", "3.1.1")
+        protocol_map = {
+            "3.1": mqtt.MQTTv31,
+            "3.1.1": mqtt.MQTTv311,
+            "5.0": mqtt.MQTTv5,
+        }
+        return protocol_map.get(version, mqtt.MQTTv311)
 
     def _update_connection_status(self, status, error_message=None):
         """Обновляет статус подключения и отправляет его через WebSocket"""
@@ -72,7 +83,10 @@ class Mqtt(BasePlugin):
             self._update_connection_status("connecting")
             
             # Создаем новый клиент MQTT
-            self._client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1)
+            self._client = mqtt.Client(
+                mqtt.CallbackAPIVersion.VERSION1,
+                protocol=self._get_mqtt_protocol(),
+            )
             # Назначаем функции обратного вызова
             self._client.on_connect = self.on_connect
             self._client.on_disconnect = self.on_disconnect
@@ -158,6 +172,7 @@ class Mqtt(BasePlugin):
         if request.method == 'GET':
             settings.host.data = self.config.get('host','')
             settings.port.data = self.config.get('port',1883)
+            settings.protocol.data = self.config.get('protocol', '3.1.1')
             settings.topic.data = self.config.get('topic','')
             settings.login.data = self.config.get('login','')
             settings.password.data = self.config.get('password','')
@@ -166,6 +181,7 @@ class Mqtt(BasePlugin):
             if settings.validate_on_submit():
                 self.config["host"] = settings.host.data
                 self.config["port"] = settings.port.data
+                self.config["protocol"] = settings.protocol.data
                 self.config["topic"] = settings.topic.data
                 self.config["login"] = settings.login.data
                 self.config["password"] = settings.password.data
@@ -302,40 +318,20 @@ class Mqtt(BasePlugin):
                     except Exception as e:
                         self.logger.error(f"Error subscribing to {topic}: {e}")
         else:
-            error_messages = {
-                1: "Connection refused - incorrect protocol version",
-                2: "Connection refused - invalid client identifier",
-                3: "Connection refused - server unavailable",
-                4: "Connection refused - bad username or password",
-                5: "Connection refused - not authorised"
-            }
-            error_msg = error_messages.get(rc, f"Connection failed with code {rc}")
+            error_msg = describe_mqtt_connect(rc)
             self.logger.error(f"MQTT connection failed: {error_msg}")
             self._update_connection_status("error", error_msg)
 
     def on_disconnect(self, client, userdata, rc):
         """Обработчик отключения от MQTT брокера"""
+        msg = describe_mqtt_disconnect(rc)
         if rc == 0:
-            self.logger.info("Disconnected gracefully.")
+            self.logger.info(msg)
             self._update_connection_status("disconnected")
         else:
-            # Неожиданное отключение - будет попытка переподключения
-            disconnect_messages = {
-                1: "Client requested disconnection",
-                2: "Broker disconnected the client unexpectedly",
-                3: "Client exceeded timeout for inactivity",
-                4: "Broker closed the connection"
-            }
-            msg = disconnect_messages.get(rc, f"Unexpected disconnection with code: {rc}")
             self.logger.warning(f"MQTT {msg}")
-            
-            # Отправляем уведомление только для неожиданных отключений
-            if rc != 0:
-                addNotify("Disconnect MQTT", msg, CategoryNotify.Error, self.name)
-            
+            addNotify("Disconnect MQTT", msg, CategoryNotify.Error, self.name)
             self._update_connection_status("disconnected", msg)
-            
-            # Сбрасываем счетчик попыток для новой серии переподключений
             self._reconnect_attempts = 0
 
     # Функция обратного вызова для получения сообщений
