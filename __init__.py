@@ -157,12 +157,11 @@ class Mqtt(BasePlugin):
     def admin(self, request):
         op = request.args.get('op', '')
         if op == 'delete':
-            id = request.args.get('topic', '')
-            with session_scope() as session:
-                sql = delete(Topic).where(Topic.id == id)
-                session.execute(sql)
-                session.commit()
-                return redirect("Mqtt")
+            topic_id = request.args.get('topic', '')
+            from plugins.Mqtt.services.topic_service import delete_topic
+            if topic_id:
+                delete_topic(int(topic_id))
+            return redirect("Mqtt")
 
         result = ['topics.html']
         if op == 'add' or op == 'edit':
@@ -253,6 +252,37 @@ class Mqtt(BasePlugin):
             
             self.event.wait(1.0)
 
+    def subscribe_topic(self, topic_path):
+        """Subscribe to a single MQTT topic when the client is connected."""
+        path = str(topic_path or "").strip()
+        if not path:
+            return False
+        if self._client is None:
+            return False
+        try:
+            if not self._client.is_connected():
+                return False
+            result = self._client.subscribe(path)
+            if result[0] == mqtt.MQTT_ERR_SUCCESS:
+                self.logger.info(f"Subscribed to topic: {path}")
+                return True
+            self.logger.error(f"Failed to subscribe to {path}: error code {result[0]}")
+            return False
+        except Exception as e:
+            self.logger.error(f"Error subscribing to {path}: {e}")
+            return False
+
+    def subscribe_all_entity_topics(self):
+        """Subscribe to all entity paths stored in mqtt_topics."""
+        with session_scope() as session:
+            paths = {
+                (row.path or "").strip()
+                for row in session.query(Topic).all()
+                if (row.path or "").strip()
+            }
+        for path in sorted(paths):
+            self.subscribe_topic(path)
+
     def mqttPublish(self, topic, value, qos=0, retain=False):
         """Публикация сообщения в MQTT топик с проверкой подключения"""
         if self._client is None or not self._client.is_connected():
@@ -317,6 +347,7 @@ class Mqtt(BasePlugin):
                             self.logger.error(f"Failed to subscribe to {topic}: error code {result[0]}")
                     except Exception as e:
                         self.logger.error(f"Error subscribing to {topic}: {e}")
+            self.subscribe_all_entity_topics()
         else:
             error_msg = describe_mqtt_connect(rc)
             self.logger.error(f"MQTT connection failed: {error_msg}")
@@ -365,7 +396,7 @@ class Mqtt(BasePlugin):
                 try:
                     value = payload.decode('utf-8')
                 except UnicodeDecodeError:
-                    property.value = "Binary data not saveв"
+                    property.value = "Binary data not saved"
                     property.updated = get_now_to_utc()
                     session.commit()
                     self.sendDataToWebsocket("updateTopic",row2dict(property))
@@ -442,3 +473,78 @@ class Mqtt(BasePlugin):
                     topic.linked_method = new_value
 
             session.commit()
+
+    # --- MCP integration ---
+
+    def mcp_capabilities(self):
+        from plugins.Mqtt import mcp_support
+        return mcp_support.mcp_capabilities()
+
+    def mcp_config_schema(self):
+        from plugins.Mqtt import mcp_support
+        return mcp_support.mcp_config_schema()
+
+    def mcp_entity_schema(self, collection: str):
+        from plugins.Mqtt import mcp_support
+        return mcp_support.mcp_entity_schema(collection)
+
+    def mcp_list_entities(
+        self,
+        collection: str,
+        query: str = None,
+        limit: int = 100,
+        linked_object: str = None,
+        has_binding: bool = None,
+    ):
+        from plugins.Mqtt import mcp_support
+        return mcp_support.mcp_list_entities(
+            collection,
+            query=query,
+            limit=limit,
+            linked_object=linked_object,
+            has_binding=has_binding,
+        )
+
+    def mcp_get_entity(self, collection: str, entity_id):
+        from plugins.Mqtt import mcp_support
+        return mcp_support.mcp_get_entity(collection, entity_id)
+
+    def mcp_upsert_entity(self, collection: str, payload: dict, entity_id=None):
+        from plugins.Mqtt import mcp_support
+        return mcp_support.mcp_upsert_entity(collection, payload, entity_id=entity_id)
+
+    def mcp_delete_entity(self, collection: str, entity_id):
+        from plugins.Mqtt import mcp_support
+        return mcp_support.mcp_delete_entity(collection, entity_id)
+
+    def mcp_validate_entity_code(self, collection: str, code: str):
+        from plugins.Mqtt import mcp_support
+        return mcp_support.mcp_validate_entity_code(collection, code)
+
+    def mcp_run_entity_dry(self, collection: str, code: str, context: dict = None):
+        from plugins.Mqtt import mcp_support
+        return mcp_support.mcp_run_entity_dry(collection, code, context=context)
+
+    def mcp_invoke(self, operation: str, params: dict = None):
+        from plugins.Mqtt import mcp_support
+        return mcp_support.mcp_invoke(operation, params or {})
+
+    def mcp_entity_revision(self, collection: str, entity_id):
+        from plugins.Mqtt import mcp_support
+        return mcp_support.mcp_entity_revision(collection, entity_id)
+
+    def mcp_validate_entity(self, collection: str, payload: dict, entity_id=None):
+        from plugins.Mqtt import mcp_support
+        return mcp_support.mcp_validate_entity(collection, payload, entity_id=entity_id)
+
+    def mcp_tools(self):
+        from plugins.Mqtt import mcp_support
+        return mcp_support.mcp_descriptors()[0]
+
+    def mcp_resources(self):
+        from plugins.Mqtt import mcp_support
+        return mcp_support.mcp_descriptors()[1]
+
+    def mcp_prompts(self):
+        from plugins.Mqtt import mcp_support
+        return mcp_support.mcp_descriptors()[2]

@@ -1,8 +1,8 @@
 from flask_wtf import FlaskForm
 from wtforms import StringField, BooleanField, RadioField
 from wtforms.validators import DataRequired, Optional
-from app.database import db
 from plugins.Mqtt.models.Mqtt import Topic
+from plugins.Mqtt.services.topic_service import save_topic
 
 class TopicForm(FlaskForm):
     title = StringField('Title', validators=[DataRequired()])
@@ -26,30 +26,25 @@ def routeTopic(request):
     else:
         form = TopicForm()
 
-    from app.core.lib.object import setLinkToObject, removeLinkFromObject
-
     if request.method == 'POST':
         form = TopicForm(request.form)
         if form.validate_on_submit():
-            if id:
-                oldLinkedObject = item.linked_object
-                oldLinkedProperty = item.linked_property
-                form.populate_obj(item)  # Обновляем значения объекта данными из формы
-                newLinkedObject = item.linked_object
-                newLinkedProperty = item.linked_property
-                if oldLinkedObject != newLinkedObject or oldLinkedProperty != newLinkedProperty:
-                    if oldLinkedProperty != "":
-                        removeLinkFromObject(oldLinkedObject,oldLinkedProperty,"Mqtt")
-                    if newLinkedProperty != "":
-                        setLinkToObject(newLinkedObject,newLinkedProperty,"Mqtt")
-            else:
-                item = Topic()
-                form.populate_obj(item)
-                db.session.add(item)
-                if item.linked_property:
-                    setLinkToObject(item.linked_object,item.linked_property,"Mqtt")
-            db.session.commit()  # Сохраняем изменения в базе данных
-            return ["topics.html"]  # Перенаправляем на другую страницу после успешного редактирования
+            payload = {
+                "title": form.title.data,
+                "path": form.path.data,
+                "path_write": form.path_write.data,
+                "linked_object": form.linked_object.data,
+                "linked_property": form.linked_property.data,
+                "linked_method": form.linked_method.data,
+                "qos": int(form.qos.data or 0),
+                "retain": bool(form.retain.data),
+                "replace_list": form.replace_list.data,
+                "readonly": bool(form.readonly.data),
+                "only_new_value": bool(form.only_new_value.data),
+            }
+            entity_id = int(id) if id else None
+            save_topic(payload, entity_id=entity_id)
+            return ["topics.html"]
 
     return ['topic.html', {
             'id': id,

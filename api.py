@@ -1,7 +1,5 @@
-import json
 from flask import request, jsonify
 from flask_restx import Namespace, Resource
-from sqlalchemy import delete
 from app.api.decorators import api_key_required
 from app.authentication.handlers import handle_admin_required
 from app.api.models import model_404, model_result
@@ -87,4 +85,50 @@ class GetStatus(Resource):
         
         return jsonify(status_data)
 
+
+@_api_ns.route("/publish", endpoint="mqtt_publish")
+class PublishMessage(Resource):
+    @api_key_required
+    @handle_admin_required
+    @_api_ns.doc(security="apikey")
+    @_api_ns.response(200, "Publish result", response_result)
+    def post(self):
+        """Publish a message to an MQTT topic."""
+        plugin = get_mqtt_plugin()
+        if plugin is None:
+            return {"status": "error", "message": "MQTT plugin not found"}, 404
+
+        data = request.get_json(silent=True) or {}
+        value = data.get("value")
+        if value is None:
+            return {"status": "error", "message": "value is required"}, 400
+
+        topic_path = str(data.get("path") or "").strip()
+        topic_id = data.get("topic_id")
+        qos = data.get("qos", 0)
+        retain = bool(data.get("retain", False))
+
+        if not topic_path and topic_id in (None, ""):
+            return {"status": "error", "message": "path or topic_id is required"}, 400
+
+        if not topic_path and topic_id is not None:
+            with session_scope() as session:
+                topic = session.query(Topic).filter(Topic.id == int(topic_id)).one_or_none()
+                if topic is None:
+                    return {"status": "error", "message": f"Topic not found: {topic_id}"}, 404
+                topic_path = (topic.path_write or topic.path or "").strip()
+                if qos == 0 and topic.qos is not None:
+                    qos = topic.qos
+                if not data.get("retain"):
+                    retain = bool(topic.retain)
+                if not topic_path:
+                    return {"status": "error", "message": "Topic has no publish path"}, 400
+
+        published = plugin.mqttPublish(topic_path, value, qos=qos, retain=retain)
+        return jsonify({
+            "ok": published,
+            "published": published,
+            "path": topic_path,
+            "topic_id": topic_id,
+        })
 
