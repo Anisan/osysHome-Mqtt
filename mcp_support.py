@@ -128,6 +128,7 @@ def mcp_capabilities() -> dict:
             "Setting 'value' via upsert does not publish to MQTT and does not update linked properties.",
             "Use publish_message for one-off publishes; use property binding for bidirectional sync.",
             "Prefer osys_bind_device over manual upsert plus manage_property_links.",
+            "Upsert without entity_id updates an existing topic with the same path (no duplicates).",
             "Check get_connection_status before changing broker config or publishing.",
             "replace_list maps MQTT payload strings to linked property values (comma-separated key=value pairs).",
             "Use replace_list when MQTT sends text but linked property type is int/float/bool "
@@ -572,15 +573,22 @@ def mcp_validate_entity(collection: str, payload: dict, entity_id=None) -> dict:
     path = str(merged.get("path") or "").strip()
     if path:
         try:
-            duplicate_q = Topic.query.filter(Topic.path == path)
-            if entity_id not in (None, ""):
-                duplicate_q = duplicate_q.filter(Topic.id != int(entity_id))
-            duplicate = duplicate_q.first()
+            exclude_id = int(entity_id) if entity_id not in (None, "") else None
+            duplicate = topic_service.find_topic_by_path(path, exclude_id=exclude_id)
             if duplicate is not None:
-                warnings.append({
-                    "field": "path",
-                    "message": f"path already used by topic id={duplicate.id}",
-                })
+                if entity_id in (None, ""):
+                    warnings.append({
+                        "field": "path",
+                        "message": (
+                            f"path already used by topic id={duplicate.id}; "
+                            "upsert without entity_id will update that record"
+                        ),
+                    })
+                else:
+                    errors.append({
+                        "field": "path",
+                        "message": f"path already used by topic id={duplicate.id}",
+                    })
         except RuntimeError:
             pass
 

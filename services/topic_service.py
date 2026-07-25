@@ -52,22 +52,39 @@ def apply_payload(topic: Topic, payload: Dict[str, Any]) -> None:
     topic.updated = get_now_to_utc()
 
 
+def find_topic_by_path(path: Optional[str], exclude_id: Optional[int] = None) -> Optional[Topic]:
+    topic_path = str(path or "").strip()
+    if not topic_path:
+        return None
+    query = Topic.query.filter(Topic.path == topic_path)
+    if exclude_id is not None:
+        query = query.filter(Topic.id != int(exclude_id))
+    return query.order_by(Topic.id).first()
+
+
 def save_topic(payload: Dict[str, Any], entity_id: Optional[int] = None) -> Tuple[Topic, Optional[str]]:
     old_object = None
     old_property = None
     topic = None
 
-    if entity_id is not None:
-        topic = Topic.query.get(entity_id)
+    if entity_id not in (None, ""):
+        topic = Topic.query.get(int(entity_id))
         if topic is None:
             raise ValueError(f"Topic not found: {entity_id}")
         old_object = topic.linked_object
         old_property = topic.linked_property
         apply_payload(topic, payload)
     else:
-        topic = Topic()
-        apply_payload(topic, payload)
-        db.session.add(topic)
+        path = str(payload.get("path") or "").strip()
+        topic = find_topic_by_path(path)
+        if topic is None:
+            topic = Topic()
+            apply_payload(topic, payload)
+            db.session.add(topic)
+        else:
+            old_object = topic.linked_object
+            old_property = topic.linked_property
+            apply_payload(topic, payload)
 
     if not topic.path:
         raise ValueError("path is required")

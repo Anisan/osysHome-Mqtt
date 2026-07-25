@@ -20,7 +20,7 @@ class Mqtt(BasePlugin):
     def __init__(self,app):
         super().__init__(app,__name__)
         self.title = "Mqtt"
-        self.version = 1
+        self.version = 1.2
         self.description = """Mqtt protocol"""
         self.category = "Devices"
         self.actions = ['cycle','search']
