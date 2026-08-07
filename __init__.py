@@ -9,7 +9,7 @@ from app.core.main.BasePlugin import BasePlugin
 from plugins.Mqtt.models.Mqtt import Topic
 from plugins.Mqtt.forms.SettingForms import SettingsForm
 from plugins.Mqtt.forms.TopicForm import routeTopic
-from app.core.lib.object import callMethodThread, setPropertyThread, updatePropertyThread
+from app.core.lib.object import callMethodThread, setPropertyThread, updatePropertyThread, setLinkToObject, removeLinkFromObject
 from app.core.lib.common import addNotify, CategoryNotify
 from app.core.utilities.mqtt_errors import describe_mqtt_connect, describe_mqtt_disconnect
 from app.api import api
@@ -20,7 +20,7 @@ class Mqtt(BasePlugin):
     def __init__(self,app):
         super().__init__(app,__name__)
         self.title = "Mqtt"
-        self.version = 1.2
+        self.version = 1.3
         self.description = """Mqtt protocol"""
         self.category = "Devices"
         self.actions = ['cycle','search']
@@ -461,16 +461,28 @@ class Mqtt(BasePlugin):
         with session_scope() as session:
             topics = session.query(Topic).filter(Topic.linked_object == object_name).all()
             for topic in topics:
-                if new_value is None:
+                if new_value is None and property_name is None and method_name is None:
+                    if topic.linked_property:
+                        removeLinkFromObject(topic.linked_object, topic.linked_property, "Mqtt")
                     topic.linked_object = None
                     topic.linked_property = None
                     topic.linked_method = None
                 elif property_name is None and method_name is None:
+                    old_prop = topic.linked_property
+                    if old_prop:
+                        removeLinkFromObject(object_name, old_prop, "Mqtt")
                     topic.linked_object = new_value
+                    if old_prop and new_value:
+                        setLinkToObject(new_value, old_prop, "Mqtt")
                 elif property_name:
-                    topic.linked_property = new_value
+                    if (topic.linked_property or '') == property_name:
+                        removeLinkFromObject(object_name, property_name, "Mqtt")
+                        topic.linked_property = new_value
+                        if new_value:
+                            setLinkToObject(object_name, new_value, "Mqtt")
                 elif method_name:
-                    topic.linked_method = new_value
+                    if (topic.linked_method or '') == method_name:
+                        topic.linked_method = new_value
 
             session.commit()
 
