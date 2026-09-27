@@ -399,7 +399,7 @@ class Mqtt(BasePlugin):
                     property.value = "Binary data not saved"
                     property.updated = get_now_to_utc()
                     session.commit()
-                    self.sendDataToWebsocket("updateTopic",row2dict(property))
+                    self.sendDataToWebsocket("updateTopic",row2dict(property, timezone="UTC"))
 
                     if property.linked_object and property.linked_method:
                         callMethodThread(property.linked_object + '.' + property.linked_method, {'VALUE': payload, 'NEW_VALUE': payload, 'TITLE': property.title}, self.name)
@@ -415,7 +415,7 @@ class Mqtt(BasePlugin):
                 property.updated = get_now_to_utc()
                 session.commit()
 
-                self.sendDataToWebsocket("updateTopic",row2dict(property))
+                self.sendDataToWebsocket("updateTopic",row2dict(property, timezone="UTC"))
 
                 if property.linked_object:
                     if property.linked_method:
