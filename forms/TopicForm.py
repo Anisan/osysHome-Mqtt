@@ -1,6 +1,7 @@
 from flask_wtf import FlaskForm
 from wtforms import StringField, BooleanField, RadioField
 from wtforms.validators import DataRequired, Optional
+from app.database import parse_int_id
 from plugins.Mqtt.models.Mqtt import Topic
 from plugins.Mqtt.services.topic_service import save_topic
 
@@ -18,7 +19,7 @@ class TopicForm(FlaskForm):
     only_new_value = BooleanField('Only new value',default=False)
 
 def routeTopic(request):
-    id = request.args.get('topic', None)
+    id = parse_int_id(request.args.get('topic', None))
 
     if id:
         item = Topic.query.get_or_404(id)  # Получаем объект из базы данных или возвращаем 404, если не найден
