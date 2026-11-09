@@ -410,7 +410,7 @@ class Mqtt(BasePlugin):
                 old_value = property.value
                 if property.replace_list:
                     replaceList = self.parseReplaceName(property.replace_list)
-                    value = replaceList[value]
+                    value = replaceList.get(value, value)   # ← если нет — оставить как есть
                 property.value = value
                 property.updated = get_now_to_utc()
                 session.commit()
